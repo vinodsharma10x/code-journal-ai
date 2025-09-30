@@ -97,7 +97,7 @@ const Entries = () => {
         toast.success('Entry saved successfully!');
       }
 
-      handleDialogClose();
+      await handleDialogClose();
       await fetchEntries();
     } catch (error: any) {
       toast.error(error.message || 'Failed to save entry');
@@ -129,8 +129,10 @@ const Entries = () => {
   };
 
   const handleDialogClose = () => {
-    setIsDialogOpen(false);
-    setEditingEntry(null);
+    if (!submitting) {
+      setIsDialogOpen(false);
+      setEditingEntry(null);
+    }
   };
 
   const filteredEntries = entries.filter((entry) =>
@@ -153,9 +155,16 @@ const Entries = () => {
           <h1 className="text-4xl font-bold text-gradient">Journal Entries</h1>
           <p className="text-muted-foreground mt-2">Manage and organize your development journal</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { if (submitting) return; setIsDialogOpen(open); if (!open) setEditingEntry(null); }}>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="hero" size="lg">
+            <Button 
+              variant="hero" 
+              size="lg"
+              onClick={() => {
+                setEditingEntry(null);
+                setIsDialogOpen(true);
+              }}
+            >
               <Plus className="mr-2 h-4 w-4" /> New Entry
             </Button>
           </DialogTrigger>
@@ -249,7 +258,13 @@ const Entries = () => {
       {filteredEntries.length === 0 ? (
         <Card className="p-12 text-center glass">
           <p className="text-muted-foreground mb-4">No entries yet. Start documenting your journey!</p>
-          <Button variant="hero" onClick={() => { setEditingEntry(null); setIsDialogOpen(true); }}>
+          <Button 
+            variant="hero" 
+            onClick={() => {
+              setEditingEntry(null);
+              setIsDialogOpen(true);
+            }}
+          >
             <Plus className="mr-2 h-4 w-4" /> Create Your First Entry
           </Button>
         </Card>

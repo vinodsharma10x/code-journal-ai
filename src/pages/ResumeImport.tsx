@@ -3,8 +3,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Upload, FileText, Check, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const ResumeImport = () => {
+  const { user } = useAuth();
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -22,27 +25,84 @@ const ResumeImport = () => {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
-    if (file && (file.type === "application/pdf" || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document")) {
+    if (file && (file.type === "application/pdf" || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || file.type === "text/plain")) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("File size must be less than 10MB");
+        return;
+      }
       setUploadedFile(file);
     } else {
-      toast.error("Please upload a PDF or DOCX file");
+      toast.error("Please upload a PDF, DOCX, or TXT file");
     }
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("File size must be less than 10MB");
+        return;
+      }
       setUploadedFile(file);
     }
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
+    if (!uploadedFile || !user) return;
+
     setIsProcessing(true);
-    // Simulate processing
-    setTimeout(() => {
+
+    try {
+      // Upload file to storage
+      const filePath = `${user.id}/${Date.now()}-${uploadedFile.name}`;
+      
+      console.log("Uploading file to storage:", filePath);
+      
+      const { error: uploadError } = await supabase.storage
+        .from("resumes")
+        .upload(filePath, uploadedFile, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw uploadError;
+      }
+
+      console.log("File uploaded successfully, parsing...");
+
+      // Call edge function to parse resume
+      const { data, error: functionError } = await supabase.functions.invoke(
+        "parse-resume",
+        {
+          body: { filePath },
+        }
+      );
+
+      if (functionError) {
+        console.error("Function error:", functionError);
+        throw functionError;
+      }
+
+      console.log("Parse response:", data);
+
+      toast.success(
+        `Resume imported successfully! ${data.entriesCreated} entries created.`
+      );
+      
+      // Clean up
+      setUploadedFile(null);
+      
+      // Delete the uploaded file after processing
+      await supabase.storage.from("resumes").remove([filePath]);
+      
+    } catch (error: any) {
+      console.error("Import error:", error);
+      toast.error(error.message || "Failed to import resume");
+    } finally {
       setIsProcessing(false);
-      toast.success("Resume imported successfully! Check your entries.");
-    }, 3000);
+    }
   };
 
   return (
@@ -61,7 +121,7 @@ const ResumeImport = () => {
             <div className="text-sm">
               <p className="font-medium mb-1">How it works</p>
               <p className="text-muted-foreground">
-                Upload your resume (PDF or DOCX) and our AI will extract your professional experience,
+                Upload your resume (PDF, DOCX, or TXT) and our AI will extract your professional experience,
                 creating journal entries for each position. You can edit these entries afterward.
               </p>
             </div>
@@ -81,12 +141,12 @@ const ResumeImport = () => {
               <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <p className="text-lg font-medium mb-2">Drop your resume here</p>
               <p className="text-sm text-muted-foreground mb-4">
-                or click to browse (PDF or DOCX, max 10MB)
+                or click to browse (PDF, DOCX, or TXT, max 10MB)
               </p>
               <input
                 type="file"
                 id="resume-upload"
-                accept=".pdf,.docx"
+                accept=".pdf,.docx,.txt"
                 onChange={handleFileInput}
                 className="hidden"
               />
@@ -126,6 +186,18 @@ const ResumeImport = () => {
                   Remove
                 </Button>
               </div>
+
+              {isProcessing && (
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
+                    <p className="text-sm font-medium">Analyzing your resume with AI...</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    This may take a few moments. We're extracting your experience and creating journal entries.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

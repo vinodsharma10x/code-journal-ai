@@ -1,1 +1,7 @@
 project_id = "pzrobwberjsvbojuztob"
+
+[functions.generate-summary]
+verify_jwt = true
+
+[functions.parse-resume]
+verify_jwt = true
