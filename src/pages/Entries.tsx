@@ -129,15 +129,8 @@ const Entries = () => {
   };
 
   const handleDialogClose = () => {
-    if (!submitting) {
-      setIsDialogOpen(false);
-      setEditingEntry(null);
-    }
-  };
-
-  const handleOpenDialog = () => {
+    setIsDialogOpen(false);
     setEditingEntry(null);
-    setIsDialogOpen(true);
   };
 
   const filteredEntries = entries.filter((entry) =>
@@ -160,9 +153,9 @@ const Entries = () => {
           <h1 className="text-4xl font-bold text-gradient">Journal Entries</h1>
           <p className="text-muted-foreground mt-2">Manage and organize your development journal</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => { if (submitting) return; setIsDialogOpen(open); if (!open) setEditingEntry(null); }}>
           <DialogTrigger asChild>
-            <Button variant="hero" size="lg" onClick={handleOpenDialog}>
+            <Button variant="hero" size="lg">
               <Plus className="mr-2 h-4 w-4" /> New Entry
             </Button>
           </DialogTrigger>
@@ -256,7 +249,7 @@ const Entries = () => {
       {filteredEntries.length === 0 ? (
         <Card className="p-12 text-center glass">
           <p className="text-muted-foreground mb-4">No entries yet. Start documenting your journey!</p>
-          <Button variant="hero" onClick={handleOpenDialog}>
+          <Button variant="hero" onClick={() => { setEditingEntry(null); setIsDialogOpen(true); }}>
             <Plus className="mr-2 h-4 w-4" /> Create Your First Entry
           </Button>
         </Card>
