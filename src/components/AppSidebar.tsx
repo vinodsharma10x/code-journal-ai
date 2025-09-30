@@ -27,7 +27,9 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const isCollapsed = state === "collapsed";
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    await supabase.auth.signOut();
     toast.success("Logged out successfully");
     navigate("/");
   };
