@@ -34,6 +34,7 @@ const Entries = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
 
   useEffect(() => {
@@ -60,6 +61,11 @@ const Entries = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    if (submitting) return; // Prevent double submissions
+    
+    setSubmitting(true);
+    
     const formData = new FormData(e.currentTarget);
     const title = formData.get('title') as string;
     const content = formData.get('content') as string;
@@ -91,12 +97,12 @@ const Entries = () => {
         toast.success('Entry saved successfully!');
       }
 
-      setIsDialogOpen(false);
-      setEditingEntry(null);
-      fetchEntries();
-      e.currentTarget.reset();
+      handleDialogClose();
+      await fetchEntries();
     } catch (error: any) {
       toast.error(error.message || 'Failed to save entry');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -123,8 +129,15 @@ const Entries = () => {
   };
 
   const handleDialogClose = () => {
-    setIsDialogOpen(false);
+    if (!submitting) {
+      setIsDialogOpen(false);
+      setEditingEntry(null);
+    }
+  };
+
+  const handleOpenDialog = () => {
     setEditingEntry(null);
+    setIsDialogOpen(true);
   };
 
   const filteredEntries = entries.filter((entry) =>
@@ -149,7 +162,7 @@ const Entries = () => {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild>
-            <Button variant="hero" size="lg">
+            <Button variant="hero" size="lg" onClick={handleOpenDialog}>
               <Plus className="mr-2 h-4 w-4" /> New Entry
             </Button>
           </DialogTrigger>
@@ -205,11 +218,20 @@ const Entries = () => {
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="ghost" onClick={handleDialogClose}>
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  onClick={handleDialogClose}
+                  disabled={submitting}
+                >
                   Cancel
                 </Button>
-                <Button type="submit" variant="hero">
-                  {editingEntry ? 'Update Entry' : 'Save Entry'}
+                <Button 
+                  type="submit" 
+                  variant="hero"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Saving...' : editingEntry ? 'Update Entry' : 'Save Entry'}
                 </Button>
               </div>
             </form>
@@ -234,7 +256,7 @@ const Entries = () => {
       {filteredEntries.length === 0 ? (
         <Card className="p-12 text-center glass">
           <p className="text-muted-foreground mb-4">No entries yet. Start documenting your journey!</p>
-          <Button variant="hero" onClick={() => setIsDialogOpen(true)}>
+          <Button variant="hero" onClick={handleOpenDialog}>
             <Plus className="mr-2 h-4 w-4" /> Create Your First Entry
           </Button>
         </Card>
